@@ -5,13 +5,49 @@ import { today } from './lib/dates.js';
 const StoreContext = createContext(null);
 export const useStore = () => useContext(StoreContext);
 
+const THEME_KEY = 'learnlog.theme';
+function readTheme() {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    return t === 'light' || t === 'dark' ? t : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
 export function StoreProvider({ children }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [toastMsg, setToastMsg] = useState({ text: '', show: false });
   const [, setDay] = useState(today());
+  const [theme, setTheme] = useState(() => readTheme());
+  const [resolvedTheme, setResolvedTheme] = useState(() => document.documentElement.dataset.theme || 'light');
   const toastTimer = useRef();
+
+  // Theme preference: 'system' follows the OS (live), 'light'/'dark' override it. Saved per browser.
+  useEffect(() => {
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const resolved = theme === 'system' ? (mq.matches ? 'dark' : 'light') : theme;
+      const root = document.documentElement;
+      if (root.dataset.theme !== resolved) {
+        // Switch instantly; per-element colour transitions would otherwise fade at different speeds.
+        root.classList.add('theme-switching');
+        root.dataset.theme = resolved;
+        requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('theme-switching')));
+      }
+      setResolvedTheme(resolved);
+    };
+    apply();
+    try {
+      if (theme === 'system') localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, theme);
+    } catch { /* storage unavailable — the choice just won't persist */ }
+    if (theme !== 'system') return;
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [theme]);
 
   const refresh = useCallback(async () => {
     try {
@@ -67,6 +103,7 @@ export function StoreProvider({ children }) {
 
   const value = {
     data, error, refresh, run, toast,
+    theme, setTheme, resolvedTheme,
     intervals: data?.settings.intervals,
     openDialog: setDialog,
     closeDialog: useCallback(() => setDialog(null), []),

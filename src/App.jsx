@@ -19,7 +19,8 @@ function useHashRoute() {
 }
 
 export default function App() {
-  const { data, error, refresh, intervals, openDialog } = useStore();
+  const { data, error, refresh, intervals, openDialog, resolvedTheme, setTheme } = useStore();
+  const nextTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
   const [view, id, tab] = useHashRoute();
 
   useEffect(() => { window.scrollTo(0, 0); }, [view, id]);
@@ -50,9 +51,14 @@ export default function App() {
             <span className="brand-mark"><Icon name="book" /></span>
             LearnLog
           </a>
-          <button className="icon-btn" onClick={() => data && openDialog(<SettingsDialog />)} aria-label="Settings" title="Settings">
-            <Icon name="settings" />
-          </button>
+          <div className="actions">
+            <button className="icon-btn" onClick={() => setTheme(nextTheme)} aria-label={`Switch to ${nextTheme} mode`} title={`Switch to ${nextTheme} mode`}>
+              <Icon name={resolvedTheme === 'dark' ? 'sun' : 'moon'} />
+            </button>
+            <button className="icon-btn" onClick={() => data && openDialog(<SettingsDialog />)} aria-label="Settings" title="Settings">
+              <Icon name="settings" />
+            </button>
+          </div>
         </div>
       </header>
       <main className="wrap">{page}</main>

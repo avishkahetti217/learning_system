@@ -8,7 +8,7 @@ import { DiffChip, Icon, cap, plural } from './ui.jsx';
 const toText = intervals => Object.fromEntries(DIFFS.map(d => [d, intervals[d].join(', ')]));
 
 export default function SettingsDialog() {
-  const { intervals, run, toast, openDialog } = useStore();
+  const { intervals, run, toast, openDialog, theme, setTheme } = useStore();
   const [values, setValues] = useState(() => toText(intervals));
 
   const save = () => {
@@ -46,7 +46,17 @@ export default function SettingsDialog() {
 
   return (
     <FormDialog title="Settings" submit="Save settings" onSubmit={save}>
-      <h4 style={{ marginTop: 4 }}>Revision schedule</h4>
+      <h4 style={{ marginTop: 4 }}>Appearance</h4>
+      <div className="seg-inline" role="group" aria-label="Theme" style={{ marginBottom: 4 }}>
+        {[['system', 'monitor', 'System'], ['light', 'sun', 'Light'], ['dark', 'moon', 'Dark']].map(([value, icon, label]) => (
+          <button
+            key={value} type="button" className={`seg-btn ${theme === value ? 'on' : ''}`} aria-pressed={theme === value}
+            onClick={() => setTheme(value)}
+          ><Icon name={icon} /> {label}</button>
+        ))}
+      </div>
+
+      <h4>Revision schedule</h4>
       <p className="muted sm" style={{ marginBottom: 12 }}>
         Days after a lesson’s start date when you’ll be prompted to revise. Separate with commas.
       </p>
