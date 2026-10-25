@@ -1,0 +1,61 @@
+import { useEffect, useState } from 'react';
+import { useStore } from './store.jsx';
+import { isDue } from './lib/plan.js';
+import { Icon } from './components/ui.jsx';
+import SettingsDialog from './components/SettingsDialog.jsx';
+import Home from './pages/Home.jsx';
+import Course from './pages/Course.jsx';
+import Lesson from './pages/Lesson.jsx';
+
+/** Hash routes: #/  ·  #/course/:id  ·  #/lesson/:id/:tab */
+function useHashRoute() {
+  const [hash, setHash] = useState(location.hash);
+  useEffect(() => {
+    const onChange = () => setHash(location.hash);
+    window.addEventListener('hashchange', onChange);
+    return () => window.removeEventListener('hashchange', onChange);
+  }, []);
+  return hash.replace(/^#\/?/, '').split('/');
+}
+
+export default function App() {
+  const { data, error, refresh, intervals, openDialog } = useStore();
+  const [view, id, tab] = useHashRoute();
+
+  useEffect(() => { window.scrollTo(0, 0); }, [view, id]);
+
+  const dueCount = data ? data.lessons.filter(l => isDue(l, intervals)).length : 0;
+  useEffect(() => { document.title = dueCount ? `(${dueCount}) LearnLog` : 'LearnLog'; }, [dueCount]);
+
+  let page;
+  if (!data) {
+    page = error
+      ? (
+        <div className="card empty-block">
+          <h3>Can’t reach the server</h3>
+          <p className="muted">{error}</p>
+          <button className="btn primary" onClick={refresh}>Try again</button>
+        </div>
+      )
+      : <p className="muted center" style={{ padding: 48 }}>Loading…</p>;
+  } else if (view === 'course') page = <Course id={id} />;
+  else if (view === 'lesson') page = <Lesson key={id} id={id} tab={tab || 'points'} />;
+  else page = <Home />;
+
+  return (
+    <>
+      <header className="topbar">
+        <div className="wrap">
+          <a href="#/" className="brand">
+            <span className="brand-mark"><Icon name="book" /></span>
+            LearnLog
+          </a>
+          <button className="icon-btn" onClick={() => data && openDialog(<SettingsDialog />)} aria-label="Settings" title="Settings">
+            <Icon name="settings" />
+          </button>
+        </div>
+      </header>
+      <main className="wrap">{page}</main>
+    </>
+  );
+}
