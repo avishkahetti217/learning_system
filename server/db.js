@@ -37,7 +37,11 @@ db.exec(`
     start_date TEXT NOT NULL,
     difficulty TEXT NOT NULL DEFAULT 'medium' CHECK (difficulty IN ('easy', 'medium', 'hard')),
     completed  INTEGER NOT NULL DEFAULT 0,
-    notes      TEXT NOT NULL DEFAULT ''
+    notes      TEXT NOT NULL DEFAULT '',
+    mindmap_done INTEGER NOT NULL DEFAULT 0,
+    mindmap_link TEXT NOT NULL DEFAULT '',
+    note_done    INTEGER NOT NULL DEFAULT 0,
+    note_link    TEXT NOT NULL DEFAULT ''
   );
   CREATE TABLE IF NOT EXISTS points (
     id        TEXT PRIMARY KEY,
@@ -51,6 +55,13 @@ db.exec(`
     front     TEXT NOT NULL,
     back      TEXT NOT NULL,
     hard      INTEGER NOT NULL DEFAULT 0,
+    position  INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS videos (
+    id        TEXT PRIMARY KEY,
+    lesson_id TEXT NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    title     TEXT NOT NULL,
+    watched   INTEGER NOT NULL DEFAULT 0,
     position  INTEGER NOT NULL
   );
   CREATE TABLE IF NOT EXISTS revisions (
@@ -67,7 +78,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_lessons_module ON lessons(module_id);
   CREATE INDEX IF NOT EXISTS idx_points_lesson ON points(lesson_id);
   CREATE INDEX IF NOT EXISTS idx_cards_lesson ON cards(lesson_id);
+  CREATE INDEX IF NOT EXISTS idx_videos_lesson ON videos(lesson_id);
 `);
+
+// Migrations for databases created before these columns existed.
+const lessonColumns = db.prepare('PRAGMA table_info(lessons)').all().map(c => c.name);
+if (!lessonColumns.includes('mindmap_done')) db.exec('ALTER TABLE lessons ADD COLUMN mindmap_done INTEGER NOT NULL DEFAULT 0');
+if (!lessonColumns.includes('mindmap_link')) db.exec("ALTER TABLE lessons ADD COLUMN mindmap_link TEXT NOT NULL DEFAULT ''");
+if (!lessonColumns.includes('note_done')) db.exec('ALTER TABLE lessons ADD COLUMN note_done INTEGER NOT NULL DEFAULT 0');
+if (!lessonColumns.includes('note_link')) db.exec("ALTER TABLE lessons ADD COLUMN note_link TEXT NOT NULL DEFAULT ''");
 
 export function getIntervals() {
   const row = db.prepare("SELECT value FROM settings WHERE key = 'intervals'").get();
@@ -94,14 +113,19 @@ export function snapshot() {
   const modules = db.prepare('SELECT id, course_id AS courseId, name, position FROM modules ORDER BY position').all();
   const points = groupBy(db.prepare('SELECT lesson_id, id, text FROM points ORDER BY position').all(), 'lesson_id');
   const cards = groupBy(db.prepare('SELECT lesson_id, id, front, back, hard FROM cards ORDER BY position').all(), 'lesson_id');
+  const videos = groupBy(db.prepare('SELECT lesson_id, id, title, watched FROM videos ORDER BY position').all(), 'lesson_id');
   const revisions = groupBy(db.prepare('SELECT lesson_id, day_offset, done_on FROM revisions').all(), 'lesson_id');
   const lessons = db.prepare(`
     SELECT l.id, l.module_id AS moduleId, m.course_id AS courseId, l.title, l.week, l.start_date AS date,
-           l.difficulty, l.completed, l.notes
+           l.difficulty, l.completed, l.notes, l.mindmap_done AS mindmapDone, l.mindmap_link AS mindmapLink,
+           l.note_done AS noteDone, l.note_link AS noteLink
     FROM lessons l JOIN modules m ON m.id = l.module_id
   `).all().map(l => ({
     ...l,
     completed: !!l.completed,
+    mindmapDone: !!l.mindmapDone,
+    noteDone: !!l.noteDone,
+    videos: (videos.get(l.id) || []).map(v => ({ ...v, watched: !!v.watched })),
     points: points.get(l.id) || [],
     cards: (cards.get(l.id) || []).map(c => ({ ...c, hard: !!c.hard })),
     revDone: Object.fromEntries((revisions.get(l.id) || []).map(r => [r.day_offset, r.done_on])),

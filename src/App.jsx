@@ -7,7 +7,7 @@ import Home from './pages/Home.jsx';
 import Course from './pages/Course.jsx';
 import Lesson from './pages/Lesson.jsx';
 
-/** Hash routes: #/  ·  #/course/:id  ·  #/lesson/:id/:tab */
+/** Hash routes: #/  ·  #/course/:id  ·  #/lesson/:id/:tab (study | points | cards | revision) */
 function useHashRoute() {
   const [hash, setHash] = useState(location.hash);
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function App() {
       )
       : <p className="muted center" style={{ padding: 48 }}>Loading…</p>;
   } else if (view === 'course') page = <Course id={id} />;
-  else if (view === 'lesson') page = <Lesson key={id} id={id} tab={tab || 'points'} />;
+  else if (view === 'lesson') page = <Lesson key={id} id={id} tab={tab || 'study'} />;
   else page = <Home />;
 
   return (

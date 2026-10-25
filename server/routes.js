@@ -108,6 +108,10 @@ const lessonFields = {
   difficulty: ['difficulty', difficulty],
   completed: ['completed', flag],
   notes: ['notes', v => text(v, 'Notes', { optional: true, max: 100000 })],
+  mindmapDone: ['mindmap_done', flag],
+  mindmapLink: ['mindmap_link', v => text(v, 'Mind map link', { optional: true, max: 2000 })],
+  noteDone: ['note_done', flag],
+  noteLink: ['note_link', v => text(v, 'Note link', { optional: true, max: 2000 })],
 };
 api.post('/lessons', (req, res) => {
   const moduleId = String(req.body.moduleId);
@@ -151,6 +155,22 @@ api.patch('/points/:id', (req, res) => {
   res.status(204).end();
 });
 api.delete('/points/:id', (req, res) => { remove('points', req.params.id); res.status(204).end(); });
+
+// Lecture videos
+api.post('/lessons/:id/videos', (req, res) => {
+  mustExist('lessons', req.params.id);
+  const video = { id: randomUUID(), lessonId: req.params.id, title: text(req.body.title, 'Video title', { max: 300 }), position: nextPosition('videos', 'lesson_id', req.params.id) };
+  db.prepare('INSERT INTO videos (id, lesson_id, title, position) VALUES (@id, @lessonId, @title, @position)').run(video);
+  res.status(201).json(video);
+});
+api.patch('/videos/:id', (req, res) => {
+  update('videos', req.params.id, req.body, {
+    title: ['title', v => text(v, 'Video title', { max: 300 })],
+    watched: ['watched', flag],
+  });
+  res.status(204).end();
+});
+api.delete('/videos/:id', (req, res) => { remove('videos', req.params.id); res.status(204).end(); });
 
 // Flashcards
 api.post('/lessons/:id/cards', (req, res) => {
@@ -200,7 +220,8 @@ api.post('/import', (req, res) => {
     db.prepare('DELETE FROM courses').run(); // cascades to everything else
     const insCourse = db.prepare('INSERT INTO courses (id, name, description, color, created_at) VALUES (?, ?, ?, ?, ?)');
     const insModule = db.prepare('INSERT INTO modules (id, course_id, name, position) VALUES (?, ?, ?, ?)');
-    const insLesson = db.prepare('INSERT INTO lessons (id, module_id, title, week, start_date, difficulty, completed, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const insLesson = db.prepare('INSERT INTO lessons (id, module_id, title, week, start_date, difficulty, completed, notes, mindmap_done, mindmap_link, note_done, note_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const insVideo = db.prepare('INSERT INTO videos (id, lesson_id, title, watched, position) VALUES (?, ?, ?, ?, ?)');
     const insPoint = db.prepare('INSERT INTO points (id, lesson_id, text, position) VALUES (?, ?, ?, ?)');
     const insCard = db.prepare('INSERT INTO cards (id, lesson_id, front, back, hard, position) VALUES (?, ?, ?, ?, ?, ?)');
     const insRev = db.prepare('INSERT INTO revisions (lesson_id, day_offset, done_on) VALUES (?, ?, ?)');
@@ -216,7 +237,8 @@ api.post('/import', (req, res) => {
     });
     for (const l of data.lessons.filter(l => moduleIds.has(l.moduleId))) {
       insLesson.run(l.id, l.moduleId, str(l.title, 'Untitled lesson'), Number(l.week) || 1, str(l.date, today()),
-        DIFFS.includes(l.difficulty) ? l.difficulty : 'medium', flag(l.completed), str(l.notes));
+        DIFFS.includes(l.difficulty) ? l.difficulty : 'medium', flag(l.completed), str(l.notes), flag(l.mindmapDone), str(l.mindmapLink), flag(l.noteDone), str(l.noteLink));
+      (l.videos || []).forEach((v, i) => insVideo.run(str(v.id, randomUUID()), l.id, str(v.title), flag(v.watched), i + 1));
       (l.points || []).forEach((p, i) => insPoint.run(str(p.id, randomUUID()), l.id, str(p.text), i + 1));
       (l.cards || []).forEach((c, i) => insCard.run(str(c.id, randomUUID()), l.id, str(c.front), str(c.back), flag(c.hard), i + 1));
       for (const [offset, doneOn] of Object.entries(l.revDone || {})) insRev.run(l.id, Number(offset), str(doneOn, today()));

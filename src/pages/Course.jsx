@@ -141,6 +141,7 @@ function LessonRow({ l }) {
   const { intervals, run } = useStore();
   const r = nextRevision(l, intervals);
   const hard = l.cards.filter(c => c.hard).length;
+  const watched = l.videos.filter(v => v.watched).length;
   const href = `#/lesson/${l.id}`;
   const label = l.completed ? 'Mark as not completed' : 'Mark as completed';
 
@@ -164,7 +165,7 @@ function LessonRow({ l }) {
       <span className="week">W{l.week}</span>
       <div className="lr-main">
         <a className="lr-title" href={href} onClick={e => e.stopPropagation()}>{l.title}</a>
-        <span className="lr-sub">{fmt(l.date)} · {plural(l.cards.length, 'card')}{hard > 0 && ` · ${hard} hard`}</span>
+        <span className="lr-sub">{fmt(l.date)}{l.videos.length > 0 && ` · ${watched}/${l.videos.length} videos`}{l.mindmapDone && ' · mind map ✓'}{l.noteDone && ' · note ✓'} · {plural(l.cards.length, 'card')}{hard > 0 && ` · ${hard} hard`}</span>
       </div>
       <DiffChip d={l.difficulty} />
       <span className="lr-rev">{rev}</span>

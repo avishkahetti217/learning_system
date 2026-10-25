@@ -5,7 +5,7 @@ import { daysBetween, fmt, rel, today } from '../lib/dates.js';
 import { DIFFS, schedule } from '../lib/plan.js';
 import { ConfirmDialog, FormDialog, lessonFields } from '../components/dialogs.jsx';
 import StudyDialog from '../components/StudyDialog.jsx';
-import { Crumbs, DiffChip, Icon, NotFound, Ring, cap, plural } from '../components/ui.jsx';
+import { Bar, Crumbs, DiffChip, Icon, NotFound, Ring, cap, plural } from '../components/ui.jsx';
 
 export default function Lesson({ id, tab }) {
   const { lesson, course, mod, intervals, run, openDialog } = useStore();
@@ -30,7 +30,9 @@ export default function Lesson({ id, tab }) {
     />,
   );
 
+  const studyDone = l.videos.filter(v => v.watched).length + ONE_OFF_TASKS.filter(t => l[t.doneKey]).length;
   const tabs = [
+    ['study', 'video', 'Study plan', `${studyDone}/${l.videos.length + ONE_OFF_TASKS.length}`],
     ['points', 'list', 'Key points', l.points.length],
     ['cards', 'cards', 'Flashcards', l.cards.length],
     ['revision', 'refresh', 'Revision plan', `${plan.filter(r => r.done).length}/${plan.length}`],
@@ -75,7 +77,142 @@ export default function Lesson({ id, tab }) {
         ))}
       </nav>
 
-      {tab === 'cards' ? <CardsTab l={l} /> : tab === 'revision' ? <RevisionTab l={l} plan={plan} /> : <PointsTab l={l} />}
+      {tab === 'points' ? <PointsTab l={l} />
+        : tab === 'cards' ? <CardsTab l={l} />
+        : tab === 'revision' ? <RevisionTab l={l} plan={plan} />
+        : <StudyTab l={l} />}
+    </>
+  );
+}
+
+const isWebLink = s => /^https?:\/\/\S+$/i.test(s);
+
+/** Tasks every lesson has exactly one of — each a tickbox plus an optional link. */
+const ONE_OFF_TASKS = [
+  {
+    doneKey: 'mindmapDone', linkKey: 'mindmapLink', icon: 'mindmap', noun: 'mind map',
+    title: 'Mind map', description: 'One mind map per lesson, showing how the ideas connect.',
+    todo: 'Create the mind map', done: 'Mind map created',
+    todoHint: 'Tick this once your mind map is ready.', doneHint: 'Done — revisit it when you revise.',
+    placeholder: 'https://… (Miro, XMind, Google Drive…)',
+  },
+  {
+    doneKey: 'noteDone', linkKey: 'noteLink', icon: 'note', noun: 'note',
+    title: 'Lesson note', description: 'Your own write-up of this lesson in Notion.',
+    todo: 'Write your note in Notion', done: 'Notion note written',
+    todoHint: 'Tick this once your note for the lesson is written.', doneHint: 'Done — keep it updated as you revise.',
+    placeholder: 'https://www.notion.so/…',
+  },
+];
+
+function OneOffTask({ l, task }) {
+  const { run } = useStore();
+  const [link, setLink] = useState(l[task.linkKey]);
+  const done = l[task.doneKey];
+  const saveLink = () => {
+    if (link.trim() !== l[task.linkKey]) run(() => api.patch(`/lessons/${l.id}`, { [task.linkKey]: link }), link.trim() ? `${cap(task.noun)} link saved` : '');
+  };
+  return (
+    <section className="card pad">
+      <h3>{task.title}</h3>
+      <p className="muted sm">{task.description}</p>
+      <div className={`task-card ${done ? 'done' : ''}`}>
+        <button
+          className={`check-btn ${done ? 'on' : ''}`}
+          onClick={() => run(() => api.patch(`/lessons/${l.id}`, { [task.doneKey]: !done }), done ? '' : `${cap(task.noun)} done`)}
+          aria-label={done ? `Mark ${task.noun} as not done` : `Mark ${task.noun} as done`}
+        ><Icon name="check" /></button>
+        <span className="mm-icon"><Icon name={task.icon} /></span>
+        <div>
+          <b>{done ? task.done : task.todo}</b>
+          <span className="muted sm">{done ? task.doneHint : task.todoHint}</span>
+        </div>
+      </div>
+      <label className="field">
+        <span>Link to {task.noun} (optional)</span>
+        <input
+          value={link} onChange={e => setLink(e.target.value)} onBlur={saveLink} maxLength={2000}
+          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+          placeholder={task.placeholder} inputMode="url"
+        />
+      </label>
+      {isWebLink(l[task.linkKey]) && (
+        <a className="btn outline sm" href={l[task.linkKey]} target="_blank" rel="noopener noreferrer"><Icon name="external" /> Open {task.noun}</a>
+      )}
+    </section>
+  );
+}
+
+/** Lecture videos to watch (any number) plus the one-off tasks (mind map, Notion note). */
+function StudyTab({ l }) {
+  const { run, openDialog } = useStore();
+  const [draft, setDraft] = useState('');
+  const watched = l.videos.filter(v => v.watched).length;
+  const pct = l.videos.length ? Math.round(watched / l.videos.length * 100) : 0;
+  const allDone = l.videos.length > 0 && watched === l.videos.length && ONE_OFF_TASKS.every(t => l[t.doneKey]);
+
+  const add = async e => {
+    e.preventDefault();
+    if (!draft.trim()) return;
+    if (await run(() => api.post(`/lessons/${l.id}/videos`, { title: draft }))) setDraft('');
+  };
+  const edit = v => openDialog(
+    <FormDialog
+      title="Edit lecture video"
+      fields={[{ name: 'title', label: 'Video title', value: v.title, required: true, attrs: { maxLength: 300 } }]}
+      onSubmit={vals => run(() => api.patch(`/videos/${v.id}`, vals))}
+    />,
+  );
+
+  return (
+    <>
+      {allDone && !l.completed && (
+        <div className="card nudge">
+          <Icon name="check" />
+          <span>All videos watched, mind map made and Notion note written.</span>
+          <span className="spacer" />
+          <button className="btn primary sm" onClick={() => run(() => api.patch(`/lessons/${l.id}`, { completed: true }), 'Lesson completed')}>Mark lesson as completed</button>
+        </div>
+      )}
+      <div className="two-col">
+        <section className="card pad">
+          <div className="card-head">
+            <h3>Lecture videos</h3>
+            {l.videos.length > 0 && <span className="muted sm">{watched} of {l.videos.length} watched</span>}
+          </div>
+          <p className="muted sm">Add each lecture video for this lesson and tick it off once you’ve watched it.</p>
+          {l.videos.length > 0 && (
+            <>
+              <Bar pct={pct} />
+              <ul className="checklist">
+                {l.videos.map(v => {
+                  const label = v.watched ? 'Mark as not watched' : 'Mark as watched';
+                  return (
+                    <li key={v.id} className={v.watched ? 'done' : ''}>
+                      <button className={`check-btn ${v.watched ? 'on' : ''}`} onClick={() => run(() => api.patch(`/videos/${v.id}`, { watched: !v.watched }))} aria-label={label} title={label}>
+                        <Icon name="check" />
+                      </button>
+                      <span className="cl-text">{v.title}</span>
+                      <div className="row-actions">
+                        <button className="icon-btn sm" onClick={() => edit(v)} aria-label="Edit video"><Icon name="edit" /></button>
+                        <button className="icon-btn sm danger" onClick={() => run(() => api.del(`/videos/${v.id}`))} aria-label="Delete video"><Icon name="trash" /></button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+          <form className="add-inline" onSubmit={add}>
+            <input value={draft} onChange={e => setDraft(e.target.value)} placeholder="Video title, e.g. 2.3 Gradient descent intuition" autoComplete="off" required maxLength={300} />
+            <button className="btn primary">Add</button>
+          </form>
+        </section>
+
+        <div className="stack">
+          {ONE_OFF_TASKS.map(t => <OneOffTask key={t.doneKey} l={l} task={t} />)}
+        </div>
+      </div>
     </>
   );
 }
