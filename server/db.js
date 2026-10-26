@@ -70,6 +70,23 @@ db.exec(`
     done_on    TEXT NOT NULL,
     PRIMARY KEY (lesson_id, day_offset)
   );
+  CREATE TABLE IF NOT EXISTS exam_plans (
+    id                 TEXT PRIMARY KEY,
+    course_id          TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    name               TEXT NOT NULL,
+    exam_date          TEXT NOT NULL,
+    study_days         TEXT NOT NULL DEFAULT '[1,2,3,4,5,6]',
+    buffer_days        INTEGER NOT NULL DEFAULT 3,
+    daily_capacity     INTEGER NOT NULL DEFAULT 3,
+    default_difficulty TEXT NOT NULL DEFAULT 'medium' CHECK (default_difficulty IN ('easy', 'medium', 'hard')),
+    created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS exam_plan_modules (
+    plan_id     TEXT NOT NULL REFERENCES exam_plans(id) ON DELETE CASCADE,
+    module_id   TEXT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+    total_weeks INTEGER NOT NULL,
+    PRIMARY KEY (plan_id, module_id)
+  );
   CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -130,5 +147,11 @@ export function snapshot() {
     cards: (cards.get(l.id) || []).map(c => ({ ...c, hard: !!c.hard })),
     revDone: Object.fromEntries((revisions.get(l.id) || []).map(r => [r.day_offset, r.done_on])),
   }));
-  return { courses, modules, lessons, settings: { intervals: getIntervals() } };
+  const planModules = groupBy(db.prepare('SELECT plan_id, module_id AS moduleId, total_weeks AS totalWeeks FROM exam_plan_modules').all(), 'plan_id');
+  const plans = db.prepare(`
+    SELECT id, course_id AS courseId, name, exam_date AS examDate, study_days AS studyDays, buffer_days AS bufferDays,
+           daily_capacity AS dailyCapacity, default_difficulty AS defaultDifficulty
+    FROM exam_plans ORDER BY exam_date, created_at
+  `).all().map(p => ({ ...p, studyDays: JSON.parse(p.studyDays), modules: planModules.get(p.id) || [] }));
+  return { courses, modules, lessons, plans, settings: { intervals: getIntervals() } };
 }

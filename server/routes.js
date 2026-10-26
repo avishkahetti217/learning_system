@@ -194,6 +194,71 @@ api.patch('/cards/:id', (req, res) => {
 });
 api.delete('/cards/:id', (req, res) => { remove('cards', req.params.id); res.status(204).end(); });
 
+// Exam plans
+function planModules(courseId, modules) {
+  if (!Array.isArray(modules) || !modules.length) throw bad('Choose at least one module for the exam');
+  const inCourse = new Set(db.prepare('SELECT id FROM modules WHERE course_id = ?').all(courseId).map(m => m.id));
+  const seen = new Set();
+  return modules.map(m => {
+    const moduleId = String(m?.moduleId);
+    if (!inCourse.has(moduleId)) throw bad('A selected module doesn’t belong to this course');
+    if (seen.has(moduleId)) throw bad('A module was selected twice');
+    seen.add(moduleId);
+    return { moduleId, totalWeeks: int(m.totalWeeks, 'Weeks per module', 1, 52) };
+  });
+}
+function studyDays(v) {
+  const days = [...new Set(Array.isArray(v) ? v.map(Number) : [])].filter(d => Number.isInteger(d) && d >= 0 && d <= 6).sort();
+  if (!days.length) throw bad('Choose at least one study day');
+  return JSON.stringify(days);
+}
+const planFields = {
+  name: ['name', v => text(v, 'Plan name', { max: 120 })],
+  examDate: ['exam_date', v => isoDate(v, 'Exam date')],
+  studyDays: ['study_days', studyDays],
+  bufferDays: ['buffer_days', v => int(v, 'Final review days', 0, 60)],
+  dailyCapacity: ['daily_capacity', v => int(v, 'Daily load', 1, 20)],
+  defaultDifficulty: ['default_difficulty', difficulty],
+};
+const savePlanModules = (planId, modules) => {
+  db.prepare('DELETE FROM exam_plan_modules WHERE plan_id = ?').run(planId);
+  const ins = db.prepare('INSERT INTO exam_plan_modules (plan_id, module_id, total_weeks) VALUES (?, ?, ?)');
+  for (const m of modules) ins.run(planId, m.moduleId, m.totalWeeks);
+};
+
+api.post('/plans', (req, res) => {
+  const courseId = String(req.body.courseId);
+  mustExist('courses', courseId);
+  const plan = {
+    id: randomUUID(), courseId,
+    name: text(req.body.name, 'Plan name', { max: 120 }),
+    examDate: isoDate(req.body.examDate, 'Exam date'),
+    studyDays: studyDays(req.body.studyDays ?? [1, 2, 3, 4, 5, 6]),
+    bufferDays: int(req.body.bufferDays ?? 3, 'Final review days', 0, 60),
+    dailyCapacity: int(req.body.dailyCapacity ?? 3, 'Daily load', 1, 20),
+    defaultDifficulty: difficulty(req.body.defaultDifficulty ?? 'medium'),
+  };
+  const modules = planModules(courseId, req.body.modules);
+  db.transaction(() => {
+    db.prepare(`INSERT INTO exam_plans (id, course_id, name, exam_date, study_days, buffer_days, daily_capacity, default_difficulty)
+                VALUES (@id, @courseId, @name, @examDate, @studyDays, @bufferDays, @dailyCapacity, @defaultDifficulty)`).run(plan);
+    savePlanModules(plan.id, modules);
+  })();
+  res.status(201).json({ id: plan.id });
+});
+api.patch('/plans/:id', (req, res) => {
+  const row = db.prepare('SELECT course_id AS courseId FROM exam_plans WHERE id = ?').get(req.params.id);
+  if (!row) throw httpError(404, 'Not found');
+  const modules = 'modules' in req.body ? planModules(row.courseId, req.body.modules) : null;
+  const { modules: _, ...fields } = req.body;
+  db.transaction(() => {
+    if (Object.keys(fields).length) update('exam_plans', req.params.id, fields, planFields);
+    if (modules) savePlanModules(req.params.id, modules);
+  })();
+  res.status(204).end();
+});
+api.delete('/plans/:id', (req, res) => { remove('exam_plans', req.params.id); res.status(204).end(); });
+
 // Settings
 api.put('/settings', (req, res) => {
   const input = req.body?.intervals || {};
@@ -242,6 +307,16 @@ api.post('/import', (req, res) => {
       (l.points || []).forEach((p, i) => insPoint.run(str(p.id, randomUUID()), l.id, str(p.text), i + 1));
       (l.cards || []).forEach((c, i) => insCard.run(str(c.id, randomUUID()), l.id, str(c.front), str(c.back), flag(c.hard), i + 1));
       for (const [offset, doneOn] of Object.entries(l.revDone || {})) insRev.run(l.id, Number(offset), str(doneOn, today()));
+    }
+    const insPlan = db.prepare('INSERT INTO exam_plans (id, course_id, name, exam_date, study_days, buffer_days, daily_capacity, default_difficulty) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const insPlanModule = db.prepare('INSERT OR IGNORE INTO exam_plan_modules (plan_id, module_id, total_weeks) VALUES (?, ?, ?)');
+    for (const p of (Array.isArray(data.plans) ? data.plans : []).filter(p => courseIds.has(p.courseId))) {
+      const days = Array.isArray(p.studyDays) ? p.studyDays.filter(d => Number.isInteger(d) && d >= 0 && d <= 6) : [];
+      const planId = str(p.id, randomUUID());
+      insPlan.run(planId, p.courseId, str(p.name, 'Exam'), str(p.examDate, today()), JSON.stringify(days.length ? days : [1, 2, 3, 4, 5, 6]),
+        Number.isInteger(p.bufferDays) ? p.bufferDays : 3, Number.isInteger(p.dailyCapacity) ? p.dailyCapacity : 3,
+        DIFFS.includes(p.defaultDifficulty) ? p.defaultDifficulty : 'medium');
+      for (const m of p.modules || []) if (moduleIds.has(m.moduleId)) insPlanModule.run(planId, m.moduleId, Number(m.totalWeeks) || 12);
     }
     if (data.settings?.intervals) setIntervals(data.settings.intervals);
   })();

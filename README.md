@@ -57,3 +57,14 @@ Revisions are scheduled a number of days after a lesson's start date:
 | Hard | 7 | 1, 2, 4, 7, 14, 30, 60 |
 
 Change these in Settings. Due and overdue revisions appear on the home page, where you can tick them off.
+
+## Exam plans
+
+**Exam plans** (top bar, or **Plan exam** on a course) projects a day-by-day schedule up to an exam:
+
+- Each tested module has one lesson per week. Completed lessons are covered; everything else — including weeks not yet added — is spread evenly over your study days, interleaving modules week by week.
+- Revisions are included: pending ones for completed lessons (several overdue ones collapse into one catch-up), plus projected ones for lessons as you learn them.
+- The last few days before the exam are a final review window with no new lessons.
+- Load is measured in lessons (a revision counts as half). Compared with your comfortable daily load, the plan is rated Relaxed → Overloaded and suggests how many study days a week you'd need.
+
+The plan is recalculated from your actual progress every time you open it, so falling behind or getting ahead rebalances the remaining days.

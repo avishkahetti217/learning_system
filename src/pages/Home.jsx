@@ -3,6 +3,7 @@ import { useStore } from '../store.jsx';
 import { daysBetween, today } from '../lib/dates.js';
 import { isDue, nextRevision, progress, schedule } from '../lib/plan.js';
 import { NewCourseDialog } from './Course.jsx';
+import { UpcomingExams } from './Plans.jsx';
 import { Bar, DiffChip, DueTag, Icon, plural } from '../components/ui.jsx';
 
 export default function Home() {
@@ -61,6 +62,8 @@ export default function Home() {
         <Stat icon="cards" label="Flashcards" value={cards.length} />
         <Stat icon="star" label="Hard flashcards" value={cards.filter(c => c.hard).length} tone="star" />
       </section>
+
+      <UpcomingExams />
 
       <div className="home-grid">
         <section>

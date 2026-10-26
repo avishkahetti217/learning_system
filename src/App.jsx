@@ -6,8 +6,9 @@ import SettingsDialog from './components/SettingsDialog.jsx';
 import Home from './pages/Home.jsx';
 import Course from './pages/Course.jsx';
 import Lesson from './pages/Lesson.jsx';
+import Plans, { PlanDetail } from './pages/Plans.jsx';
 
-/** Hash routes: #/  ·  #/course/:id  ·  #/lesson/:id/:tab (study | points | cards | revision) */
+/** Hash routes: #/  ·  #/course/:id  ·  #/lesson/:id/:tab (study | points | cards | revision)  ·  #/plans  ·  #/plan/:id */
 function useHashRoute() {
   const [hash, setHash] = useState(location.hash);
   useEffect(() => {
@@ -41,6 +42,8 @@ export default function App() {
       : <p className="muted center" style={{ padding: 48 }}>Loading…</p>;
   } else if (view === 'course') page = <Course id={id} />;
   else if (view === 'lesson') page = <Lesson key={id} id={id} tab={tab || 'study'} />;
+  else if (view === 'plans') page = <Plans />;
+  else if (view === 'plan') page = <PlanDetail key={id} id={id} />;
   else page = <Home />;
 
   return (
@@ -52,6 +55,9 @@ export default function App() {
             LearnLog
           </a>
           <div className="actions">
+            <a href="#/plans" className={`nav-link ${view === 'plans' || view === 'plan' ? 'on' : ''}`}>
+              <Icon name="calendar" /> <span>Exam plans</span>
+            </a>
             <button className="icon-btn" onClick={() => setTheme(nextTheme)} aria-label={`Switch to ${nextTheme} mode`} title={`Switch to ${nextTheme} mode`}>
               <Icon name={resolvedTheme === 'dark' ? 'sun' : 'moon'} />
             </button>

@@ -3,6 +3,7 @@ import { useStore } from '../store.jsx';
 import { daysBetween, fmt, rel, today } from '../lib/dates.js';
 import { nextRevision, progress } from '../lib/plan.js';
 import { ConfirmDialog, FormDialog, lessonFields } from '../components/dialogs.jsx';
+import { PlanDialog } from './Plans.jsx';
 import { Bar, Crumbs, DiffChip, EmptyBlock, Icon, NotFound, Ring, plural } from '../components/ui.jsx';
 
 const courseFields = (c = {}) => [
@@ -63,6 +64,7 @@ export default function Course({ id }) {
           </div>
         </div>
         <div className="actions">
+          {mods.length > 0 && <button className="btn outline sm" onClick={() => openDialog(<PlanDialog courseId={id} />)}><Icon name="calendar" /> Plan exam</button>}
           <button className="btn outline sm" onClick={edit}><Icon name="edit" /> Edit</button>
           <button className="icon-btn danger" onClick={remove} aria-label="Delete course" title="Delete course"><Icon name="trash" /></button>
         </div>
