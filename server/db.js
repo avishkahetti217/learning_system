@@ -21,7 +21,9 @@ db.exec(`
     name        TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     color       TEXT NOT NULL,
-    created_at  TEXT NOT NULL DEFAULT (date('now'))
+    created_at  TEXT NOT NULL DEFAULT (date('now')),
+    start_date     TEXT,
+    semester_weeks INTEGER
   );
   CREATE TABLE IF NOT EXISTS modules (
     id        TEXT PRIMARY KEY,
@@ -99,6 +101,9 @@ db.exec(`
 `);
 
 // Migrations for databases created before these columns existed.
+const courseColumns = db.prepare('PRAGMA table_info(courses)').all().map(c => c.name);
+if (!courseColumns.includes('start_date')) db.exec('ALTER TABLE courses ADD COLUMN start_date TEXT');
+if (!courseColumns.includes('semester_weeks')) db.exec('ALTER TABLE courses ADD COLUMN semester_weeks INTEGER');
 const lessonColumns = db.prepare('PRAGMA table_info(lessons)').all().map(c => c.name);
 if (!lessonColumns.includes('mindmap_done')) db.exec('ALTER TABLE lessons ADD COLUMN mindmap_done INTEGER NOT NULL DEFAULT 0');
 if (!lessonColumns.includes('mindmap_link')) db.exec("ALTER TABLE lessons ADD COLUMN mindmap_link TEXT NOT NULL DEFAULT ''");
@@ -126,7 +131,7 @@ const groupBy = (rows, key) => {
 
 // Everything the UI needs in one payload. It is also the backup/export format.
 export function snapshot() {
-  const courses = db.prepare('SELECT id, name, description, color, created_at AS createdAt FROM courses ORDER BY created_at, rowid').all();
+  const courses = db.prepare('SELECT id, name, description, color, created_at AS createdAt, start_date AS startDate, semester_weeks AS semesterWeeks FROM courses ORDER BY created_at, rowid').all();
   const modules = db.prepare('SELECT id, course_id AS courseId, name, position FROM modules ORDER BY position').all();
   const points = groupBy(db.prepare('SELECT lesson_id, id, text FROM points ORDER BY position').all(), 'lesson_id');
   const cards = groupBy(db.prepare('SELECT lesson_id, id, front, back, hard FROM cards ORDER BY position').all(), 'lesson_id');

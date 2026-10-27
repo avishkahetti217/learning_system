@@ -58,6 +58,14 @@ Revisions are scheduled a number of days after a lesson's start date:
 
 Change these in Settings. Due and overdue revisions appear on the home page, where you can tick them off.
 
+## Semester tracking
+
+Edit a course to set its **semester start date** and **length in weeks**. The course page then shows the current teaching week and how far behind you are, counting one lesson per module per week:
+
+- Weeks that have ended should be covered. A week with no lesson in the app counts as *lecture notes not created*; a lesson that's added but not completed counts as *pending*.
+- **Weeks behind** = (notes not created + pending lessons) ÷ number of modules. The current week is listed separately and never counts as behind.
+- A catch-up list lets you add missing lessons or open pending ones directly.
+
 ## Exam plans
 
 **Exam plans** (top bar, or **Plan exam** on a course) projects a day-by-day schedule up to an exam:

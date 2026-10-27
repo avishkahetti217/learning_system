@@ -4,11 +4,16 @@ import { daysBetween, fmt, rel, today } from '../lib/dates.js';
 import { nextRevision, progress } from '../lib/plan.js';
 import { ConfirmDialog, FormDialog, lessonFields } from '../components/dialogs.jsx';
 import { PlanDialog } from './Plans.jsx';
+import SemesterCard from '../components/SemesterCard.jsx';
 import { Bar, Crumbs, DiffChip, EmptyBlock, Icon, NotFound, Ring, plural } from '../components/ui.jsx';
 
 const courseFields = (c = {}) => [
   { name: 'name', label: 'Course name', value: c.name, required: true, attrs: { maxLength: 120, placeholder: 'e.g. Machine Learning Specialization' } },
   { name: 'description', label: 'Description (optional)', type: 'textarea', value: c.description },
+  { row: [
+    { name: 'startDate', label: 'Semester start date', type: 'date', value: c.startDate, hint: 'Optional — for semester tracking' },
+    { name: 'semesterWeeks', label: 'Semester length (weeks)', type: 'number', value: c.semesterWeeks, attrs: { min: 1, max: 52, placeholder: 'e.g. 13' } },
+  ] },
 ];
 
 export function NewCourseDialog() {
@@ -69,6 +74,8 @@ export default function Course({ id }) {
           <button className="icon-btn danger" onClick={remove} aria-label="Delete course" title="Delete course"><Icon name="trash" /></button>
         </div>
       </section>
+
+      <SemesterCard course={c} onEdit={edit} />
 
       <div className="section-bar">
         <h2>Modules</h2>

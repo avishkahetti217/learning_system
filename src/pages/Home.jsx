@@ -4,6 +4,7 @@ import { daysBetween, today } from '../lib/dates.js';
 import { isDue, nextRevision, progress, schedule } from '../lib/plan.js';
 import { NewCourseDialog } from './Course.jsx';
 import { UpcomingExams } from './Plans.jsx';
+import { useSemester } from '../components/SemesterCard.jsx';
 import { Bar, DiffChip, DueTag, Icon, plural } from '../components/ui.jsx';
 
 export default function Home() {
@@ -121,15 +122,23 @@ function CourseCard({ c }) {
   const lessons = lessonsOfCourse(c.id);
   const p = progress(lessons);
   const dueN = lessons.filter(l => isDue(l, intervals)).length;
+  const sem = useSemester(c);
+  const behind = sem && !sem.notStarted && sem.weeksBehind > 0;
   return (
     <a className="course-card" href={`#/course/${c.id}`} style={{ '--accent': c.color }}>
       <div className="cc-top">
         <span className="cc-icon"><Icon name="book" /></span>
-        {dueN > 0 && <span className="tag due">{dueN} to revise</span>}
+        <span className="cc-tags">
+          {behind && <span className={`tag ${sem.tone === 'hard' ? 'overdue' : 'warn'}`}>{sem.label}</span>}
+          {dueN > 0 && <span className="tag due">{dueN} to revise</span>}
+        </span>
       </div>
       <h3>{c.name}</h3>
       {c.description && <p className="muted clamp">{c.description}</p>}
-      <div className="cc-meta">{plural(modulesOf(c.id).length, 'module')} · {plural(p.total, 'lesson')}</div>
+      <div className="cc-meta">
+        {sem && !sem.notStarted && !sem.finished && <>Week {sem.currentWeek} of {sem.total} · </>}
+        {plural(modulesOf(c.id).length, 'module')} · {plural(p.total, 'lesson')}
+      </div>
       <Bar pct={p.pct} />
       <div className="cc-foot"><span>{p.done} of {p.total} completed</span><b>{p.pct}%</b></div>
     </a>

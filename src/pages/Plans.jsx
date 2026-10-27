@@ -22,11 +22,11 @@ export function usePlanProjection(plan) {
 /* ---------- Create / edit ---------- */
 
 export function PlanDialog({ plan, courseId: fixedCourse }) {
-  const { data, modulesOf, lessonsOf, run, closeDialog, toast } = useStore();
+  const { data, course, modulesOf, lessonsOf, run, closeDialog, toast } = useStore();
   const editing = !!plan;
   const [courseId, setCourseId] = useState(plan?.courseId || fixedCourse || data.courses[0]?.id || '');
   const defaultsFor = cid => Object.fromEntries(modulesOf(cid).map(m => [
-    m.id, Math.max(DEFAULT_WEEKS, ...lessonsOf(m.id).map(l => l.week)),
+    m.id, Math.max(course(cid)?.semesterWeeks || DEFAULT_WEEKS, ...lessonsOf(m.id).map(l => l.week)),
   ]));
   const [name, setName] = useState(plan?.name || 'Semester exam');
   const [examDate, setExamDate] = useState(plan?.examDate || addDays(today(), 42));

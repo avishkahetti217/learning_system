@@ -31,6 +31,10 @@ function difficulty(v) {
   return v;
 }
 const flag = v => (v ? 1 : 0);
+/** Optional values: empty or missing clears them (stored as NULL). */
+const optional = parse => v => (v == null || v === '' ? null : parse(v));
+const startDate = optional(v => isoDate(v, 'Semester start date'));
+const semesterWeeks = optional(v => int(v, 'Semester length', 1, 52));
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** Applies whitelisted fields from `body` to one row. `fields` maps body key -> [column, parser]. */
@@ -73,14 +77,18 @@ api.post('/courses', (req, res) => {
     name: text(req.body.name, 'Course name', { max: 120 }),
     description: text(req.body.description, 'Description', { optional: true, max: 2000 }),
     color: COLORS[count % COLORS.length],
+    startDate: startDate(req.body.startDate),
+    semesterWeeks: semesterWeeks(req.body.semesterWeeks),
   };
-  db.prepare('INSERT INTO courses (id, name, description, color) VALUES (@id, @name, @description, @color)').run(course);
+  db.prepare('INSERT INTO courses (id, name, description, color, start_date, semester_weeks) VALUES (@id, @name, @description, @color, @startDate, @semesterWeeks)').run(course);
   res.status(201).json(course);
 });
 api.patch('/courses/:id', (req, res) => {
   update('courses', req.params.id, req.body, {
     name: ['name', v => text(v, 'Course name', { max: 120 })],
     description: ['description', v => text(v, 'Description', { optional: true, max: 2000 })],
+    startDate: ['start_date', startDate],
+    semesterWeeks: ['semester_weeks', semesterWeeks],
   });
   res.status(204).end();
 });
@@ -283,7 +291,7 @@ api.post('/import', (req, res) => {
   const str = (v, fallback = '') => (typeof v === 'string' ? v : fallback);
   db.transaction(() => {
     db.prepare('DELETE FROM courses').run(); // cascades to everything else
-    const insCourse = db.prepare('INSERT INTO courses (id, name, description, color, created_at) VALUES (?, ?, ?, ?, ?)');
+    const insCourse = db.prepare('INSERT INTO courses (id, name, description, color, created_at, start_date, semester_weeks) VALUES (?, ?, ?, ?, ?, ?, ?)');
     const insModule = db.prepare('INSERT INTO modules (id, course_id, name, position) VALUES (?, ?, ?, ?)');
     const insLesson = db.prepare('INSERT INTO lessons (id, module_id, title, week, start_date, difficulty, completed, notes, mindmap_done, mindmap_link, note_done, note_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     const insVideo = db.prepare('INSERT INTO videos (id, lesson_id, title, watched, position) VALUES (?, ?, ?, ?, ?)');
@@ -293,7 +301,8 @@ api.post('/import', (req, res) => {
 
     const courseIds = new Set(), moduleIds = new Set();
     data.courses.forEach((c, i) => {
-      insCourse.run(str(c.id, randomUUID()), str(c.name, 'Untitled course'), str(c.description), str(c.color, COLORS[i % COLORS.length]), str(c.createdAt, today()));
+      insCourse.run(str(c.id, randomUUID()), str(c.name, 'Untitled course'), str(c.description), str(c.color, COLORS[i % COLORS.length]), str(c.createdAt, today()),
+        typeof c.startDate === 'string' && c.startDate ? c.startDate : null, Number.isInteger(c.semesterWeeks) ? c.semesterWeeks : null);
       courseIds.add(c.id);
     });
     data.modules.filter(m => courseIds.has(m.courseId)).forEach((m, i) => {

@@ -348,6 +348,32 @@ main.wrap { padding-top: 24px; padding-bottom: 72px; }
 .nudge > .ic { color: var(--easy); }
 .add-inline { display: flex; gap: 8px; }
 
+/* ---------- Semester progress ---------- */
+.semester { margin-bottom: 28px; }
+.semester.setup { display: flex; align-items: center; gap: 14px; }
+.semester.setup > div { flex: 1; }
+.semester h4 { margin: 18px 0 8px; }
+.sem-timeline { margin: 12px 0 4px; }
+.sem-dates { display: flex; justify-content: space-between; margin-top: 6px; }
+.sem-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.sem-stat { padding: 12px 14px; border-radius: 12px; background: var(--surface-2); display: flex; flex-direction: column; }
+.sem-stat b { font-size: 20px; line-height: 1.2; }
+.sem-stat span { font-size: 12.5px; color: var(--muted); }
+.sem-stat.easy { background: var(--easy-bg); color: var(--easy); }
+.sem-stat.medium { background: var(--medium-bg); color: var(--medium); }
+.sem-stat.hard { background: var(--hard-bg); color: var(--hard); }
+.sem-stat.easy span, .sem-stat.medium span, .sem-stat.hard span { color: inherit; opacity: .85; }
+.sem-summary { margin-top: 12px; }
+.sem-more { margin-top: 8px; }
+.agenda-list .week { background: var(--surface); }
+.ag-ic.done { background: var(--easy-bg); color: var(--easy); }
+.tag.warn { background: var(--medium-bg); color: var(--medium); }
+.cc-tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 640px) {
+  .sem-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .semester.setup { flex-wrap: wrap; }
+}
+
 /* ---------- Exam plans ---------- */
 .nav-link { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border-radius: 9px; color: var(--muted); font-weight: 560; font-size: 14px; margin-right: 4px; }
 .nav-link:hover { background: var(--surface-2); color: var(--text); }
